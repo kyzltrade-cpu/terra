@@ -46,3 +46,16 @@ def test_whatsapp_voice_webhook_analysis(client, mock_db):
     # Slang dictionary maps "pulidora de pisos" -> "[FLOOR BUFFER / BURNISHER]"
     assert "La pulidora de pisos" in response.text
     assert "[FLOOR BUFFER / BURNISHER]" in response.text
+
+def test_whatsapp_text_anomaly_webhook(client, mock_db):
+    # Simulate a typed text message anomaly report
+    payload = {
+        "From": "whatsapp:+155****4567",
+        "Body": "La manguera está rota"
+    }
+    
+    response = client.post("/api/whatsapp/webhook", data=payload)
+    assert response.status_code == 200
+    assert "Text Log Received!" in response.text
+    assert "[BROKEN PRESSURE WASHING HOSE]" in response.text
+
