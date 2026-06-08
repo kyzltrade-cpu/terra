@@ -42,8 +42,8 @@ class ShiftEvent(Base):
     __tablename__ = "shift_events"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    property_id = Column(UUID(as_uuid=True), ForeignKey("properties.id", ondelete="CASCADE"), nullable=False)
-    zone_id = Column(UUID(as_uuid=True), ForeignKey("property_zones.id", ondelete="CASCADE"), nullable=False)
+    property_id = Column(UUID(as_uuid=True), ForeignKey("properties.id", ondelete="CASCADE"), nullable=True)
+    zone_id = Column(UUID(as_uuid=True), ForeignKey("property_zones.id", ondelete="CASCADE"), nullable=True)
     worker_phone = Column(String(50), nullable=False)
     event_type = Column(String(50), nullable=False)
     scanned_at = Column(DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP"))
