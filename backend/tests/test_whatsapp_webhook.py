@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 from backend.models import PropertyZone
 
 def test_whatsapp_qr_webhook_check_in(client, mock_db):
@@ -33,7 +33,18 @@ def test_whatsapp_qr_webhook_check_in(client, mock_db):
     assert response.status_code == 200
     assert "Check-In Confirmed" in response.text
 
-def test_whatsapp_voice_webhook_analysis(client, mock_db):
+@patch("backend.routers.whatsapp_webhook.triage_field_anomaly")
+def test_whatsapp_voice_webhook_analysis(mock_triage, client, mock_db):
+    mock_triage.return_value = {
+        "detected_issue": "La pulidora de pisos [FLOOR BUFFER / BURNISHER] tiene un problema",
+        "severity": "high",
+        "assigned_agent": "Tech Lead",
+        "reasoning": "A broken floor buffer halts operations.",
+        "github_issue_title": "[MAINTENANCE] Repair Floor Buffer",
+        "github_issue_created": True,
+        "github_issue_url": "https://github.com/kyzltrade-cpu/terra/issues/1"
+    }
+
     # Simulate a voice note URL payload
     payload = {
         "From": "whatsapp:+155****4567",
@@ -42,12 +53,22 @@ def test_whatsapp_voice_webhook_analysis(client, mock_db):
     
     response = client.post("/api/whatsapp/webhook", data=payload)
     assert response.status_code == 200
-    # Whisper mock will output: "La pulidora de pisos tiene un problema"
-    # Slang dictionary maps "pulidora de pisos" -> "[FLOOR BUFFER / BURNISHER]"
-    assert "La pulidora de pisos" in response.text
+    assert "Voice Log Received!" in response.text
     assert "[FLOOR BUFFER / BURNISHER]" in response.text
+    assert "The Concierge" in response.text
 
-def test_whatsapp_text_anomaly_webhook(client, mock_db):
+@patch("backend.routers.whatsapp_webhook.triage_field_anomaly")
+def test_whatsapp_text_anomaly_webhook(mock_triage, client, mock_db):
+    mock_triage.return_value = {
+        "detected_issue": "La manguera [BROKEN PRESSURE WASHING HOSE] está rota",
+        "severity": "high",
+        "assigned_agent": "Tech Lead",
+        "reasoning": "A broken hose halts pressure washing operations.",
+        "github_issue_title": "[MAINTENANCE] Repair Hose",
+        "github_issue_created": True,
+        "github_issue_url": "https://github.com/kyzltrade-cpu/terra/issues/2"
+    }
+
     # Simulate a typed text message anomaly report
     payload = {
         "From": "whatsapp:+155****4567",
@@ -58,4 +79,4 @@ def test_whatsapp_text_anomaly_webhook(client, mock_db):
     assert response.status_code == 200
     assert "Text Log Received!" in response.text
     assert "[BROKEN PRESSURE WASHING HOSE]" in response.text
-
+    assert "The Concierge" in response.text

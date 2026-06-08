@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from backend.database import get_db
 from backend.models import PropertyZone, ShiftEvent
 from backend.services.voice_processor import transcribe_whatsapp_media, translate_field_audio
+from backend.services.agent_triage import triage_field_anomaly
 
 router = APIRouter(prefix="/api/whatsapp", tags=["whatsapp"])
 
@@ -44,21 +45,42 @@ async def whatsapp_webhook(
     # Handle incoming voice note
     if MediaUrl0:
         raw_text = transcribe_whatsapp_media(MediaUrl0)
-        canonical_text = translate_field_audio(raw_text)
+        triage_data = triage_field_anomaly(raw_text)
         
-        # Save anomaly/maintenance report in DB
+        severity_emoji = "🚨" if triage_data.get("severity") == "high" else "⚠️" if triage_data.get("severity") == "medium" else "ℹ️"
+        gh_status = f"Created! 🔗 {triage_data['github_issue_url']}" if triage_data.get("github_issue_created") else "Not Required (SLA safe)"
+        
+        transcription_formatted = (
+            f"Voice Transcription: \"{raw_text}\"\n"
+            f"Agent Triage Issue: {triage_data.get('detected_issue')}\n"
+            f"Assigned Agent: {triage_data.get('assigned_agent')}\n"
+            f"Severity: {triage_data.get('severity')}\n"
+            f"Reasoning: {triage_data.get('reasoning')}\n"
+            f"GitHub Ticket: {gh_status}"
+        )
+
+        # Save anomaly/maintenance report in DB with rich agent triage metadata
         event = ShiftEvent(
             worker_phone=From,
             event_type="anomaly_report",
             gps_lat=float(Latitude) if Latitude else None,
             gps_lon=float(Longitude) if Longitude else None,
             voice_note_url=MediaUrl0,
-            transcription=canonical_text
+            transcription=transcription_formatted
         )
         db.add(event)
         db.commit()
         
-        twiml_response = f"<Response><Message>Voice Log Received!\nTranscription: \"{raw_text}\"\nB2B Translation: \"{canonical_text}\"</Message></Response>"
+        twiml_response = (
+            f"<Response><Message>🎙️ Voice Log Received!\n"
+            f"\"_{raw_text}_\"\n\n"
+            f"🤖 *The Concierge (Agent Triage):*\n"
+            f"• *Issue:* {triage_data.get('detected_issue')}\n"
+            f"• *Dept:* {triage_data.get('assigned_agent')}\n"
+            f"• *Severity:* {severity_emoji} {(triage_data.get('severity') or '').upper()}\n"
+            f"• *Reasoning:* \"{triage_data.get('reasoning')}\"\n\n"
+            f"🛠️ *GitHub Ticket:* {gh_status}</Message></Response>"
+        )
         return Response(content=twiml_response, media_type="application/xml")
 
     text_body = Body.strip() if Body else ""
@@ -96,20 +118,41 @@ async def whatsapp_webhook(
         return Response(content=twiml_response, media_type="application/xml")
 
     if text_body:
-        canonical_text = translate_field_audio(text_body)
+        triage_data = triage_field_anomaly(text_body)
         
-        # Save typed anomaly report in DB
+        severity_emoji = "🚨" if triage_data.get("severity") == "high" else "⚠️" if triage_data.get("severity") == "medium" else "ℹ️"
+        gh_status = f"Created! 🔗 {triage_data['github_issue_url']}" if triage_data.get("github_issue_created") else "Not Required (SLA safe)"
+        
+        transcription_formatted = (
+            f"Text Message Input: \"{text_body}\"\n"
+            f"Agent Triage Issue: {triage_data.get('detected_issue')}\n"
+            f"Assigned Agent: {triage_data.get('assigned_agent')}\n"
+            f"Severity: {triage_data.get('severity')}\n"
+            f"Reasoning: {triage_data.get('reasoning')}\n"
+            f"GitHub Ticket: {gh_status}"
+        )
+
+        # Save typed anomaly report in DB with rich agent triage metadata
         event = ShiftEvent(
             worker_phone=From,
             event_type="text_anomaly_report",
             gps_lat=float(Latitude) if Latitude else None,
             gps_lon=float(Longitude) if Longitude else None,
-            transcription=canonical_text
+            transcription=transcription_formatted
         )
         db.add(event)
         db.commit()
         
-        twiml_response = f"<Response><Message>Text Log Received!\nInput: \"{text_body}\"\nB2B Translation: \"{canonical_text}\"</Message></Response>"
+        twiml_response = (
+            f"<Response><Message>✍️ Text Log Received!\n"
+            f"\"_{text_body}_\"\n\n"
+            f"🤖 *The Concierge (Agent Triage):*\n"
+            f"• *Issue:* {triage_data.get('detected_issue')}\n"
+            f"• *Dept:* {triage_data.get('assigned_agent')}\n"
+            f"• *Severity:* {severity_emoji} {(triage_data.get('severity') or '').upper()}\n"
+            f"• *Reasoning:* \"{triage_data.get('reasoning')}\"\n\n"
+            f"🛠️ *GitHub Ticket:* {gh_status}</Message></Response>"
+        )
         return Response(content=twiml_response, media_type="application/xml")
 
     twiml_response = "<Response><Message>TerraClean.OS active. Please scan a physical QR code to register your check-in, or send a voice memo for anomaly reporting.</Message></Response>"
