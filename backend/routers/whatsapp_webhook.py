@@ -95,5 +95,22 @@ async def whatsapp_webhook(
         twiml_response = f"<Response><Message>Check-In Confirmed! Zone: {zone.name} successfully registered.</Message></Response>"
         return Response(content=twiml_response, media_type="application/xml")
 
+    if text_body:
+        canonical_text = translate_field_audio(text_body)
+        
+        # Save typed anomaly report in DB
+        event = ShiftEvent(
+            worker_phone=From,
+            event_type="text_anomaly_report",
+            gps_lat=float(Latitude) if Latitude else None,
+            gps_lon=float(Longitude) if Longitude else None,
+            transcription=canonical_text
+        )
+        db.add(event)
+        db.commit()
+        
+        twiml_response = f"<Response><Message>Text Log Received!\nInput: \"{text_body}\"\nB2B Translation: \"{canonical_text}\"</Message></Response>"
+        return Response(content=twiml_response, media_type="application/xml")
+
     twiml_response = "<Response><Message>TerraClean.OS active. Please scan a physical QR code to register your check-in, or send a voice memo for anomaly reporting.</Message></Response>"
     return Response(content=twiml_response, media_type="application/xml")

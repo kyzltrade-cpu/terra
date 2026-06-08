@@ -6,7 +6,16 @@ SLANG_MAPPINGS = {
     "poda de jardin": "turf lawn trimming",
     "bano sucio": "restroom sanitation alert",
     "manguera rota": "broken pressure washing hose",
-    "quimicos terminados": "chemical supply depletion"
+    "quimicos terminados": "chemical supply depletion",
+    # Single-word robust keywords
+    "manguera": "broken pressure washing hose",
+    "pulidora": "floor buffer / burnisher",
+    "baño": "restroom sanitation alert",
+    "bano": "restroom sanitation alert",
+    "poda": "turf lawn trimming",
+    "químicos": "chemical supply depletion",
+    "quimicos": "chemical supply depletion",
+    "espejo": "broken mirror"
 }
 
 def translate_field_audio(transcription_text: str) -> str:
